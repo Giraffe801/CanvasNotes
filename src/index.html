@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Canvas Notes Dashboard</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Segoe+UI:wght@300;400;600;700&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <div id="app">
+        <!-- Loading Screen -->
+        <div id="loading-screen" class="loading-screen">
+            <div class="loading-content">
+                <div class="loading-spinner"></div>
+                <h2>Loading Canvas Notes</h2>
+                <p>Please wait while we initialize your dashboard...</p>
+            </div>
+        </div>
+
+        <!-- Update Notification -->
+        <div id="update-notification" class="notification update-notification hidden">
+            <div class="notification-content">
+                <div class="notification-info">
+                    <i class="fas fa-download"></i>
+                    <span id="update-message">Update available: Version 1.1.0</span>
+                </div>
+                <div class="notification-actions">
+                    <button id="update-btn" class="btn btn-primary">Update</button>
+                    <button id="skip-update-btn" class="btn btn-secondary">Skip</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- General Notifications -->
+        <div id="notifications-container" class="notifications-container"></div>
+
+        <!-- Main Application -->
+        <div id="main-app" class="main-app">
+            <!-- Navigation Header -->
+            <header class="header">
+                <div class="header-content">
+                    <div class="header-left">
+                        <h1 class="app-title">
+                            <i class="fas fa-graduation-cap"></i>
+                            Canvas Notes
+                        </h1>
+                        <div id="status-info" class="status-info">
+                            <span id="status-text">No cached data</span>
+                        </div>
+                    </div>
+                    <div class="header-right">
+                        <div class="dropdown">
+                            <button class="btn btn-primary dropdown-toggle" id="view-options-btn">
+                                <i class="fas fa-eye"></i>
+                                View Options
+                                <i class="fas fa-chevron-down"></i>
+                            </button>
+                            <div class="dropdown-menu" id="view-options-menu">
+                                <a href="#" id="show-all-courses">
+                                    <i class="fas fa-list"></i>
+                                    Show All Courses
+                                </a>
+                                <a href="#" id="show-hidden-courses">
+                                    <i class="fas fa-eye-slash"></i>
+                                    Show Hidden Courses
+                                </a>
+                                <a href="#" id="hide-hidden-courses">
+                                    <i class="fas fa-eye"></i>
+                                    Hide Hidden Courses
+                                </a>
+                                <div class="dropdown-divider"></div>
+                                <a href="#" id="view-past-courses">
+                                    <i class="fas fa-history"></i>
+                                    View Past Courses
+                                </a>
+                                <div class="dropdown-divider"></div>
+                                <a href="#" id="check-updates">
+                                    <i class="fas fa-sync"></i>
+                                    Check for Updates
+                                </a>
+                            </div>
+                        </div>
+                        <button class="btn btn-secondary" id="configure-api-btn">
+                            <i class="fas fa-cog"></i>
+                            Configure API
+                        </button>
+                        <button class="btn btn-primary" id="refresh-btn">
+                            <i class="fas fa-sync-alt"></i>
+                            Refresh
+                        </button>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Main Content Area -->
+            <main class="main-content">
+                <!-- Course Dashboard -->
+                <div id="course-dashboard" class="dashboard">
+                    <div id="courses-grid" class="courses-grid">
+                        <!-- Course cards will be populated here -->
+                    </div>
+                </div>
+
+                <!-- API Configuration Panel -->
+                <div id="api-config-panel" class="panel hidden">
+                    <div class="panel-header">
+                        <button class="btn-back" id="back-to-dashboard">
+                            <i class="fas fa-arrow-left"></i>
+                            Back to Dashboard
+                        </button>
+                        <h2>Canvas API Configuration</h2>
+                    </div>
+                    <div class="config-card">
+                        <div class="config-section">
+                            <p class="config-description">
+                                Configure your Canvas API credentials to access your courses
+                            </p>
+                            <p class="config-help">
+                                Get your API token from Canvas Account Settings → Approved Integrations
+                            </p>
+                        </div>
+                        <div class="form-group">
+                            <label for="canvas-url">Canvas Base URL:</label>
+                            <input type="url" id="canvas-url" placeholder="https://yourschool.instructure.com">
+                            <small>Example: https://yourschool.instructure.com</small>
+                        </div>
+                        <div class="form-group">
+                            <label for="canvas-token">API Token:</label>
+                            <input type="password" id="canvas-token" placeholder="Your personal Canvas API access token">
+                            <small>Your personal Canvas API access token</small>
+                        </div>
+                        <div class="config-actions">
+                            <button class="btn btn-secondary" id="test-connection">
+                                <i class="fas fa-search"></i>
+                                Test Connection
+                            </button>
+                            <button class="btn btn-success" id="save-config">
+                                <i class="fas fa-save"></i>
+                                Save & Apply
+                            </button>
+                        </div>
+                        <div id="config-status" class="config-status"></div>
+                    </div>
+                </div>
+
+                <!-- Course Editor Panel -->
+                <div id="course-editor-panel" class="panel hidden">
+                    <div class="panel-header">
+                        <button class="btn-back" id="back-to-courses">
+                            <i class="fas fa-arrow-left"></i>
+                            Back to Courses
+                        </button>
+                        <div class="course-info">
+                            <h2 id="current-course-name">Course Name</h2>
+                            <span id="current-course-details">Course Code • Term</span>
+                        </div>
+                    </div>
+                    <div class="editor-layout">
+                        <!-- File Manager Sidebar -->
+                        <div class="file-manager">
+                            <div class="file-manager-header">
+                                <h3>
+                                    <i class="fas fa-folder"></i>
+                                    Course Notes
+                                </h3>
+                                <div class="file-actions">
+                                    <button class="btn btn-sm btn-success" id="new-note-btn">
+                                        <i class="fas fa-plus"></i>
+                                        New Note
+                                    </button>
+                                    <button class="btn btn-sm btn-danger" id="delete-note-btn">
+                                        <i class="fas fa-trash"></i>
+                                        Delete
+                                    </button>
+                                    <button class="btn btn-sm btn-secondary" id="refresh-files-btn">
+                                        <i class="fas fa-sync"></i>
+                                        Refresh
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="file-list" id="file-list">
+                                <!-- File list will be populated here -->
+                            </div>
+                        </div>
+
+                        <!-- Note Editor -->
+                        <div class="note-editor">
+                            <div class="editor-header">
+                                <div class="editor-info">
+                                    <h3>
+                                        <i class="fas fa-edit"></i>
+                                        Note Editor
+                                    </h3>
+                                    <span id="current-file-name">No file selected</span>
+                                </div>
+                                <div class="editor-actions">
+                                    <button class="btn btn-sm btn-primary" id="save-note-btn">
+                                        <i class="fas fa-save"></i>
+                                        Save
+                                    </button>
+                                    <button class="btn btn-sm btn-secondary" id="save-note-as-btn">
+                                        <i class="fas fa-save"></i>
+                                        Save As...
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="editor-container">
+                                <textarea id="note-editor" placeholder="Start writing your notes..."></textarea>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+
+        <!-- Modal Dialogs -->
+        <div id="modal-overlay" class="modal-overlay hidden">
+            <div class="modal">
+                <div class="modal-header">
+                    <h3 id="modal-title">Confirm Action</h3>
+                    <button class="modal-close" id="modal-close">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <p id="modal-message">Are you sure you want to proceed?</p>
+                    <div id="modal-input" class="hidden">
+                        <input type="text" id="modal-input-field" placeholder="Enter value...">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" id="modal-cancel">Cancel</button>
+                    <button class="btn btn-primary" id="modal-confirm">Confirm</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Application scripts -->
+    <script src="app.js"></script>
+    <script src="updater.js"></script>
+</body>
+</html>
