@@ -1,0 +1,214 @@
+Making Canvas API request to: https://slcschools.instructure.com/api/v1/courses?enrollment_state=active&per_page=100
+API request successful, received 3
+[ERROR] 127.0.0.1 - - [11/Aug/2025 22:37:21] "POST /api/save-config HTTP/1.1" 200 -
+[ERROR] 127.0.0.1 - - [11/Aug/2025 22:37:47] code 500, message Expecting value: line 1 column 1 (char 0)
+[ERROR] 127.0.0.1 - - [11/Aug/2025 22:37:47] "POST /api/courses HTTP/1.1" 500 -
+[ERROR] 127.0.0.1 - - [11/Aug/2025 22:37:48] code 500, message Expecting value: line 1 column 1 (char 0)
+[ERROR] 127.0.0.1 - - [11/Aug/2025 22:37:48] "POST /api/courses HTTP/1.1" 500 -
+[ERROR] 127.0.0.1 - - [11/Aug/2025 22:37:48] code 500, message Expecting value: line 1 column 1 (char 0)
+[ERROR] 127.0.0.1 - - [11/Aug/2025 22:37:48] "POST /api/courses HTTP/1.1" 500 -
+
+Session ended: 2025-08-11T22:38:06.150350
+==================================================
+
+
+==================================================
+Session started: 2025-08-11T22:38:08.797125
+Canvas Dashboard v1.0.0 - DEV MODE
+==================================================
+DEV MODE: Logging enabled to c:\Users\essbr\Desktop\CanvasNotesT\src\canvas_dashboard.log
+DEV MODE: Using local src folder
+Loaded config from file: {'canvas_url': 'https://slcschools.instructure.com', 'canvas_token': '7043~NDftGRANkD8JGyEQX6kmcCy8TCZefGBJzFJeV44RAXTHfQLQuvX4RkmWex6aMVa9', 'last_updated': '2025-08-11T22:37:21.689251'}
+Creating CanvasAPI with URL: https://slcschools.instructure.com
+CanvasAPI created successfully
+DEV MODE: Serving from script directory
+Server running successfully!
+Server URL: http://localhost:53860
+Serving src from: c:\Users\essbr\Desktop\CanvasNotesT\src
+[ERROR] 127.0.0.1 - - [11/Aug/2025 22:38:11] "GET / HTTP/1.1" 200 -
+[ERROR] 127.0.0.1 - - [11/Aug/2025 22:38:11] "GET /styles.css HTTP/1.1" 200 -
+[ERROR] 127.0.0.1 - - [11/Aug/2025 22:38:11] "GET /app.js HTTP/1.1" 200 -
+[ERROR] 127.0.0.1 - - [11/Aug/2025 22:38:11] "GET /updater.js HTTP/1.1" 200 -
+Config request - app_instance exists: True
+canvas_api exists: True
+Sending config: {'canvas_url': 'https://slcschools.instructure.com', 'token_length': 69, 'has_token': True}
+[ERROR] 127.0.0.1 - - [11/Aug/2025 22:38:12] "GET /api/config HTTP/1.1" 200 -
+[ERROR] 127.0.0.1 - - [11/Aug/2025 22:38:12] "GET /api/courses HTTP/1.1" 200 -
+[ERROR] 127.0.0.1 - - [11/Aug/2025 22:38:12] code 404, message File not found
+[ERROR] 127.0.0.1 - - [11/Aug/2025 22:38:12] "GET /favicon.ico HTTP/1.1" 404 -
+Making Canvas API request to: https://slcschools.instructure.com/api/v1/courses?enrollment_state=active&per_page=100
+API request successful, received 3
+[ERROR] 127.0.0.1 - - [11/Aug/2025 22:38:16] "POST /api/save-config HTTP/1.1" 200 -
+
+Session ended: 2025-08-11T22:38:23.396777
+==================================================
+
+
+==================================================
+Session started: 2025-08-11T22:40:22.739632
+Canvas Dashboard v1.0.0 - DEV MODE
+==================================================
+DEV MODE: Logging enabled to C:\Users\essbr\Desktop\CanvasNotesT\src\canvas_dashboard.log
+DEV MODE: Using local src folder
+Loaded config from file: {'canvas_url': 'https://slcschools.instructure.com', 'canvas_token': '7043~NDftGRANkD8JGyEQX6kmcCy8TCZefGBJzFJeV44RAXTHfQLQuvX4RkmWex6aMVa9', 'last_updated': '2025-08-11T22:38:16.456242'}
+Creating CanvasAPI with URL: https://slcschools.instructure.com
+CanvasAPI created successfully
+DEV MODE: Serving from script directory
+Server running successfully!
+Server URL: http://localhost:54076
+Serving src from: C:\Users\essbr\Desktop\CanvasNotesT\src
+[ERROR] 127.0.0.1 - - [11/Aug/2025 22:40:27] "GET / HTTP/1.1" 200 -
+[ERROR] 127.0.0.1 - - [11/Aug/2025 22:40:27] "GET /styles.css HTTP/1.1" 200 -
+[ERROR] 127.0.0.1 - - [11/Aug/2025 22:40:27] "GET /app.js HTTP/1.1" 200 -
+[ERROR] 127.0.0.1 - - [11/Aug/2025 22:40:27] "GET /updater.js HTTP/1.1" 200 -
+Config request - app_instance exists: True
+canvas_api exists: True
+Sending config: {'canvas_url': 'https://slcschools.instructure.com', 'token_length': 69, 'has_token': True}
+[ERROR] 127.0.0.1 - - [11/Aug/2025 22:40:27] "GET /api/config HTTP/1.1" 200 -
+[ERROR] 127.0.0.1 - - [11/Aug/2025 22:40:27] code 404, message File not found
+[ERROR] 127.0.0.1 - - [11/Aug/2025 22:40:27] "GET /favicon.ico HTTP/1.1" 404 -
+[ERROR] 127.0.0.1 - - [11/Aug/2025 22:40:28] "GET /api/courses HTTP/1.1" 200 -
+DEBUG: handle_save_config_request received data: {'canvas_url': 'https://slcschools.instructure.com', 'canvas_token': '7043~NDftGRANkD8JGyEQX6kmcCy8TCZefGBJzFJeV44RAXTHfQLQuvX4RkmWex6aMVa9'}
+DEBUG: Received data for save_api_config_from_web: {'canvas_url': 'https://slcschools.instructure.com', 'canvas_token': '7043~NDftGRANkD8JGyEQX6kmcCy8TCZefGBJzFJeV44RAXTHfQLQuvX4RkmWex6aMVa9'}
+DEBUG: Extracted url='https://slcschools.instructure.com', token length=69
+Making Canvas API request to: https://slcschools.instructure.com/api/v1/courses?enrollment_state=active&per_page=100
+API request successful, received 3
+[ERROR] 127.0.0.1 - - [11/Aug/2025 22:40:31] "POST /api/save-config HTTP/1.1" 200 -
+[ERROR] 127.0.0.1 - - [11/Aug/2025 22:40:31] code 500, message Expecting value: line 1 column 1 (char 0)
+[ERROR] 127.0.0.1 - - [11/Aug/2025 22:40:31] "POST /api/courses HTTP/1.1" 500 -
+[ERROR] 127.0.0.1 - - [11/Aug/2025 22:40:33] code 500, message Expecting value: line 1 column 1 (char 0)
+[ERROR] 127.0.0.1 - - [11/Aug/2025 22:40:33] "POST /api/courses HTTP/1.1" 500 -
+[ERROR] 127.0.0.1 - - [11/Aug/2025 22:40:34] code 500, message Expecting value: line 1 column 1 (char 0)
+[ERROR] 127.0.0.1 - - [11/Aug/2025 22:40:34] "POST /api/courses HTTP/1.1" 500 -
+DEBUG: handle_save_config_request received data: {'canvas_url': 'https://slcschools.instructure.com', 'canvas_token': '7043~NDftGRANkD8JGyEQX6kmcCy8TCZefGBJzFJeV44RAXTHfQLQuvX4RkmWex6aMVa9'}
+DEBUG: Received data for save_api_config_from_web: {'canvas_url': 'https://slcschools.instructure.com', 'canvas_token': '7043~NDftGRANkD8JGyEQX6kmcCy8TCZefGBJzFJeV44RAXTHfQLQuvX4RkmWex6aMVa9'}
+DEBUG: Extracted url='https://slcschools.instructure.com', token length=69
+Making Canvas API request to: https://slcschools.instructure.com/api/v1/courses?enrollment_state=active&per_page=100
+API request successful, received 3
+[ERROR] 127.0.0.1 - - [11/Aug/2025 22:40:37] "POST /api/save-config HTTP/1.1" 200 -
+[ERROR] 127.0.0.1 - - [11/Aug/2025 22:40:37] code 500, message Expecting value: line 1 column 1 (char 0)
+[ERROR] 127.0.0.1 - - [11/Aug/2025 22:40:37] "POST /api/courses HTTP/1.1" 500 -
+
+Session ended: 2025-08-11T22:41:24.779326
+==================================================
+
+
+==================================================
+Session started: 2025-08-11T22:47:52.871888
+Canvas Dashboard v1.0.0 - DEV MODE
+==================================================
+DEV MODE: Logging enabled to C:\Users\essbr\Desktop\CanvasNotesT\src\canvas_dashboard.log
+DEV MODE: Using local src folder
+Loaded config from file: {'canvas_url': 'https://slcschools.instructure.com', 'canvas_token': '7043~NDftGRANkD8JGyEQX6kmcCy8TCZefGBJzFJeV44RAXTHfQLQuvX4RkmWex6aMVa9', 'last_updated': '2025-08-11T22:40:37.222163'}
+Creating CanvasAPI with URL: https://slcschools.instructure.com
+CanvasAPI created successfully
+DEV MODE: Serving from script directory
+Server running successfully!
+Server URL: http://localhost:54261
+Serving src from: C:\Users\essbr\Desktop\CanvasNotesT\src
+[ERROR] 127.0.0.1 - - [11/Aug/2025 22:47:57] "GET / HTTP/1.1" 200 -
+[ERROR] 127.0.0.1 - - [11/Aug/2025 22:47:57] "GET /styles.css HTTP/1.1" 200 -
+[ERROR] 127.0.0.1 - - [11/Aug/2025 22:47:57] "GET /app.js HTTP/1.1" 200 -
+[ERROR] 127.0.0.1 - - [11/Aug/2025 22:47:57] "GET /updater.js HTTP/1.1" 200 -
+Config request - app_instance exists: True
+canvas_api exists: True
+Sending config: {'canvas_url': 'https://slcschools.instructure.com', 'token_length': 69, 'has_token': True}
+[ERROR] 127.0.0.1 - - [11/Aug/2025 22:47:57] "GET /api/config HTTP/1.1" 200 -
+[ERROR] 127.0.0.1 - - [11/Aug/2025 22:47:57] code 404, message File not found
+[ERROR] 127.0.0.1 - - [11/Aug/2025 22:47:57] "GET /favicon.ico HTTP/1.1" 404 -
+[ERROR] 127.0.0.1 - - [11/Aug/2025 22:47:57] "GET /api/courses HTTP/1.1" 200 -
+Making Canvas API request to: https://slcschools.instructure.com/api/v1/courses?enrollment_state=active&per_page=100
+API request successful, received 3
+[ERROR] 127.0.0.1 - - [11/Aug/2025 22:48:07] "POST /api/save-config HTTP/1.1" 200 -
+Making Canvas API request to: https://slcschools.instructure.com/api/v1/courses?enrollment_state=active&per_page=100
+API request successful, received 3
+[ERROR] 127.0.0.1 - - [11/Aug/2025 22:48:07] "POST /api/courses HTTP/1.1" 200 -
+[ERROR] 127.0.0.1 - - [11/Aug/2025 22:48:07] "GET /api/courses HTTP/1.1" 200 -
+Making Canvas API request to: https://slcschools.instructure.com/api/v1/courses?enrollment_state=active&per_page=100
+API request successful, received 3
+[ERROR] 127.0.0.1 - - [11/Aug/2025 22:48:27] "POST /api/courses HTTP/1.1" 200 -
+[ERROR] 127.0.0.1 - - [11/Aug/2025 22:48:27] "GET /api/courses HTTP/1.1" 200 -
+Making Canvas API request to: https://slcschools.instructure.com/api/v1/courses?enrollment_state=active&per_page=100
+API request successful, received 3
+[ERROR] 127.0.0.1 - - [11/Aug/2025 22:48:28] "POST /api/courses HTTP/1.1" 200 -
+Making Canvas API request to: https://slcschools.instructure.com/api/v1/courses?enrollment_state=active&per_page=100
+API request successful, received 3
+[ERROR] 127.0.0.1 - - [11/Aug/2025 22:48:28] "POST /api/courses HTTP/1.1" 200 -
+[ERROR] 127.0.0.1 - - [11/Aug/2025 22:48:28] "GET /api/courses HTTP/1.1" 200 -
+[ERROR] 127.0.0.1 - - [11/Aug/2025 22:48:28] "GET /api/courses HTTP/1.1" 200 -
+Making Canvas API request to: https://slcschools.instructure.com/api/v1/courses?enrollment_state=active&per_page=100
+API request successful, received 3
+[ERROR] 127.0.0.1 - - [11/Aug/2025 22:48:35] "POST /api/courses HTTP/1.1" 200 -
+Making Canvas API request to: https://slcschools.instructure.com/api/v1/courses?enrollment_state=active&per_page=100
+API request successful, received 3
+[ERROR] 127.0.0.1 - - [11/Aug/2025 22:48:35] "POST /api/courses HTTP/1.1" 200 -
+[ERROR] 127.0.0.1 - - [11/Aug/2025 22:48:35] "GET /api/courses HTTP/1.1" 200 -
+Making Canvas API request to: https://slcschools.instructure.com/api/v1/courses?enrollment_state=active&per_page=100
+API request successful, received 3
+[ERROR] 127.0.0.1 - - [11/Aug/2025 22:48:36] "POST /api/courses HTTP/1.1" 200 -
+Making Canvas API request to: https://slcschools.instructure.com/api/v1/courses?enrollment_state=active&per_page=100
+API request successful, received 3
+[ERROR] 127.0.0.1 - - [11/Aug/2025 22:48:36] "POST /api/courses HTTP/1.1" 200 -
+[ERROR] 127.0.0.1 - - [11/Aug/2025 22:48:36] "GET /api/courses HTTP/1.1" 200 -
+[ERROR] 127.0.0.1 - - [11/Aug/2025 22:48:36] "GET /api/courses HTTP/1.1" 200 -
+[ERROR] 127.0.0.1 - - [11/Aug/2025 22:48:37] "GET /api/courses HTTP/1.1" 200 -
+
+==================================================
+Session started: 2025-08-11T22:51:21.056868
+Canvas Dashboard v1.0.0 - DEV MODE
+==================================================
+DEV MODE: Logging enabled to C:\Users\essbr\Desktop\CanvasNotesT\src\canvas_dashboard.log
+DEV MODE: Using local src folder
+Loaded config from file: {'canvas_url': 'https://slcschools.instructure.com', 'canvas_token': '7043~NDftGRANkD8JGyEQX6kmcCy8TCZefGBJzFJeV44RAXTHfQLQuvX4RkmWex6aMVa9', 'last_updated': '2025-08-11T22:48:07.174905'}
+Creating CanvasAPI with URL: https://slcschools.instructure.com
+CanvasAPI created successfully
+DEV MODE: Serving from script directory
+Server running successfully!
+Server URL: http://localhost:54506
+Serving src from: C:\Users\essbr\Desktop\CanvasNotesT\src
+[ERROR] 127.0.0.1 - - [11/Aug/2025 22:51:23] "GET / HTTP/1.1" 200 -
+[ERROR] 127.0.0.1 - - [11/Aug/2025 22:51:23] "GET /styles.css HTTP/1.1" 200 -
+[ERROR] 127.0.0.1 - - [11/Aug/2025 22:51:23] "GET /app.js HTTP/1.1" 200 -
+[ERROR] 127.0.0.1 - - [11/Aug/2025 22:51:23] "GET /updater.js HTTP/1.1" 200 -
+Config request - app_instance exists: True
+canvas_api exists: True
+Sending config: {'canvas_url': 'https://slcschools.instructure.com', 'token_length': 69, 'has_token': True}
+[ERROR] 127.0.0.1 - - [11/Aug/2025 22:51:24] "GET /api/config HTTP/1.1" 200 -
+[ERROR] 127.0.0.1 - - [11/Aug/2025 22:51:24] "GET /api/courses HTTP/1.1" 200 -
+[ERROR] 127.0.0.1 - - [11/Aug/2025 22:51:24] code 404, message File not found
+[ERROR] 127.0.0.1 - - [11/Aug/2025 22:51:24] "GET /favicon.ico HTTP/1.1" 404 -
+
+Session ended: 2025-08-11T22:52:22.982583
+==================================================
+
+
+==================================================
+Session started: 2025-08-11T22:56:06.354445
+Canvas Dashboard v1.0.0 - DEV MODE
+==================================================
+DEV MODE: Logging enabled to C:\Users\essbr\Desktop\CanvasNotesT\src\canvas_dashboard.log
+DEV MODE: Using local src folder
+Loaded config from file: {'canvas_url': 'https://slcschools.instructure.com', 'canvas_token': '7043~NDftGRANkD8JGyEQX6kmcCy8TCZefGBJzFJeV44RAXTHfQLQuvX4RkmWex6aMVa9', 'last_updated': '2025-08-11T22:48:07.174905'}
+Creating CanvasAPI with URL: https://slcschools.instructure.com
+CanvasAPI created successfully
+DEV MODE: Serving from script directory
+Server running successfully!
+Server URL: http://localhost:54626
+Serving src from: C:\Users\essbr\Desktop\CanvasNotesT\src
+[ERROR] 127.0.0.1 - - [11/Aug/2025 22:56:08] "GET / HTTP/1.1" 200 -
+[ERROR] 127.0.0.1 - - [11/Aug/2025 22:56:09] "GET /styles.css HTTP/1.1" 200 -
+[ERROR] 127.0.0.1 - - [11/Aug/2025 22:56:09] "GET /app.js HTTP/1.1" 200 -
+[ERROR] 127.0.0.1 - - [11/Aug/2025 22:56:09] "GET /updater.js HTTP/1.1" 200 -
+Config request - app_instance exists: True
+canvas_api exists: True
+Sending config: {'canvas_url': 'https://slcschools.instructure.com', 'token_length': 69, 'has_token': True}
+[ERROR] 127.0.0.1 - - [11/Aug/2025 22:56:09] "GET /api/config HTTP/1.1" 200 -
+[ERROR] 127.0.0.1 - - [11/Aug/2025 22:56:09] code 404, message File not found
+[ERROR] 127.0.0.1 - - [11/Aug/2025 22:56:09] "GET /favicon.ico HTTP/1.1" 404 -
+[ERROR] 127.0.0.1 - - [11/Aug/2025 22:56:10] "GET /api/courses HTTP/1.1" 200 -
+[ERROR] 127.0.0.1 - - [11/Aug/2025 22:56:39] "GET /api/files/19972231 HTTP/1.1" 200 -
+[ERROR] 127.0.0.1 - - [11/Aug/2025 22:57:05] "GET /api/files/135963 HTTP/1.1" 200 -
+
+Session ended: 2025-08-11T22:58:08.824334
+==================================================
+

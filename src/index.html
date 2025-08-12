@@ -207,7 +207,7 @@
                                 </div>
                             </div>
                             <div class="editor-container">
-                                <textarea id="note-editor" placeholder="Start writing your notes..."></textarea>
+                                <textarea id="note-editor" placeholder="Notes may not work properly at this moment"></textarea>
                             </div>
                         </div>
                     </div>
@@ -233,6 +233,41 @@
                 <div class="modal-footer">
                     <button class="btn btn-secondary" id="modal-cancel">Cancel</button>
                     <button class="btn btn-primary" id="modal-confirm">Confirm</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Configuration Modal -->
+        <div id="config-modal-overlay" class="modal-overlay hidden">
+            <div class="modal config-modal">
+                <div class="modal-header">
+                    <h3>Configure Canvas API</h3>
+                    <button class="modal-close" id="config-modal-close">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="canvas-school">School/Organization Name:</label>
+                        <input type="text" id="canvas-school" placeholder="slcschools" required>
+                        <small class="help-text">Enter just your school name (e.g., "slcschools" for slcschools.instructure.com)</small>
+                    </div>
+                    <div class="form-group">
+                        <label for="canvas-token-modal">Access Token:</label>
+                        <input type="password" id="canvas-token-modal" placeholder="Your Canvas API token" required>
+                        <small class="help-text">Generate this from Account → Settings → Approved Integrations → New Access Token</small>
+                    </div>
+                    <div class="form-group">
+                        <button type="button" class="btn btn-secondary" id="test-connection">
+                            <i class="fas fa-plug"></i>
+                            Test Connection
+                        </button>
+                        <span id="connection-status" class="connection-status"></span>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" id="config-modal-cancel">Cancel</button>
+                    <button class="btn btn-primary" id="config-modal-save">Save Configuration</button>
                 </div>
             </div>
         </div>

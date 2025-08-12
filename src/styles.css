@@ -407,10 +407,30 @@ body {
 .course-card.hidden-course {
     background: #1a1f26;
     opacity: 0.7;
+    border: 1px solid #444;
+}
+
+.course-card.hidden-course::before {
+    content: "👁️‍🗨️";
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    font-size: 1.2rem;
+    opacity: 0.7;
 }
 
 .course-card.past-course {
     background: #2d1b3d;
+    border: 1px solid #664;
+}
+
+.course-card.past-course::before {
+    content: "📚";
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    font-size: 1.2rem;
+    opacity: 0.7;
 }
 
 .course-header {
@@ -508,6 +528,7 @@ body {
     display: flex;
     align-items: baseline;
     gap: var(--spacing-md);
+    flex-wrap: wrap;
 }
 
 .course-info h2 {
@@ -517,6 +538,36 @@ body {
 .course-info span {
     color: var(--accent-primary);
     font-size: 1.1rem;
+}
+
+/* Course Timer */
+.course-timer {
+    background: var(--bg-tertiary);
+    color: var(--success-color);
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border-radius: var(--border-radius);
+    font-size: 0.9rem;
+    font-weight: 600;
+    border: 1px solid var(--success-color);
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    margin-top: var(--spacing-xs);
+}
+
+.course-timer:before {
+    content: "⏰";
+    font-size: 0.8rem;
+}
+
+.course-timer.expired {
+    background: var(--error-color);
+    color: white;
+    border-color: var(--error-color);
+}
+
+.course-timer.expired:before {
+    content: "⚠️";
 }
 
 /* Configuration Panel */
@@ -965,6 +1016,65 @@ body {
     background: var(--bg-tertiary);
 }
 
+/* Configuration Modal */
+.config-modal {
+    max-width: 600px;
+}
+
+.form-group {
+    margin-bottom: var(--spacing-lg);
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: var(--spacing-sm);
+    color: var(--text-primary);
+    font-weight: 600;
+}
+
+.form-group input {
+    width: 100%;
+    padding: var(--spacing-md);
+    background: var(--bg-tertiary);
+    border: 2px solid var(--border-color);
+    border-radius: var(--border-radius);
+    color: var(--text-primary);
+    font-size: 1rem;
+    transition: all var(--transition-fast);
+}
+
+.form-group input:focus {
+    outline: none;
+    border-color: var(--accent-primary);
+    box-shadow: 0 0 0 3px rgba(74, 158, 255, 0.1);
+}
+
+.help-text {
+    display: block;
+    margin-top: var(--spacing-sm);
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+    line-height: 1.4;
+}
+
+.connection-status {
+    margin-left: var(--spacing-md);
+    font-size: 0.875rem;
+    font-weight: 600;
+}
+
+.connection-status.success {
+    color: var(--success-color);
+}
+
+.connection-status.error {
+    color: var(--error-color);
+}
+
+.connection-status.testing {
+    color: var(--info-color);
+}
+
 /* Empty States */
 .empty-state {
     text-align: center;
@@ -1204,4 +1314,70 @@ body {
         transform: translateX(0);
         opacity: 1;
     }
+}
+
+/* Notes Editor Styles */
+.empty-editor {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    text-align: center;
+    color: var(--text-muted);
+    padding: var(--spacing-xl);
+}
+
+.empty-editor h3 {
+    color: var(--text-primary);
+    margin-bottom: var(--spacing-md);
+}
+
+.empty-editor p {
+    margin-bottom: var(--spacing-lg);
+    font-size: 1.1rem;
+}
+
+.no-files {
+    text-align: center;
+    padding: var(--spacing-xl);
+    color: var(--text-muted);
+}
+
+.no-files p {
+    margin-bottom: var(--spacing-md);
+    font-size: 1rem;
+}
+
+/* File item improvements */
+.file-item {
+    position: relative;
+}
+
+.file-item span {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.file-item .btn {
+    opacity: 0;
+    transition: opacity var(--transition-fast);
+    margin-left: auto;
+}
+
+.file-item:hover .btn {
+    opacity: 1;
+}
+
+/* Course action buttons */
+.course-actions {
+    display: flex;
+    gap: var(--spacing-xs);
+    align-items: center;
+}
+
+.course-actions .btn {
+    white-space: nowrap;
 }

@@ -1,6 +1,7 @@
 import sys
 import tkinter as tk
 from tkinter import ttk
+import tkinter.messagebox as messagebox
 import json
 import os
 import threading
@@ -17,6 +18,7 @@ import http.server
 import socketserver
 from urllib.parse import urlparse, parse_qs
 import socket
+import subprocess
 try:
     import webview
     HAS_WEBVIEW = True
@@ -24,7 +26,63 @@ except ImportError:
     HAS_WEBVIEW = False
     import webbrowser
 
-APP_VERSION = "1.0.0"
+APP_VERSION = "0.1.0"
+DEV_MODE = True
+
+class DevLogger:
+    """Logger class for dev mode that saves console output to a log file"""
+    def __init__(self, log_file_path):
+        self.log_file_path = log_file_path
+        self.original_stdout = sys.stdout
+        self.original_stderr = sys.stderr
+        
+        # Create log file and directory if they don't exist
+        os.makedirs(os.path.dirname(log_file_path), exist_ok=True)
+        
+        # Open log file in append mode
+        self.log_file = open(log_file_path, 'a', encoding='utf-8')
+        
+        # Write session start marker
+        self.log_file.write(f"\n{'='*50}\n")
+        self.log_file.write(f"Session started: {datetime.now().isoformat()}\n")
+        self.log_file.write(f"Canvas Dashboard v{APP_VERSION} - DEV MODE\n")
+        self.log_file.write(f"{'='*50}\n")
+        self.log_file.flush()
+    
+    def write(self, text):
+        # Write to both console and log file
+        self.original_stdout.write(text)
+        self.log_file.write(text)
+        self.log_file.flush()
+    
+    def flush(self):
+        self.original_stdout.flush()
+        self.log_file.flush()
+    
+    def close(self):
+        if hasattr(self, 'log_file') and self.log_file:
+            self.log_file.write(f"\nSession ended: {datetime.now().isoformat()}\n")
+            self.log_file.write(f"{'='*50}\n\n")
+            self.log_file.close()
+        # Restore original stdout/stderr
+        sys.stdout = self.original_stdout
+        sys.stderr = self.original_stderr
+
+class DevErrorLogger:
+    """Error logger for stderr in dev mode"""
+    def __init__(self, log_file, original_stderr):
+        self.log_file = log_file
+        self.original_stderr = original_stderr
+    
+    def write(self, text):
+        # Write to both console and log file
+        self.original_stderr.write(text)
+        self.log_file.write(f"[ERROR] {text}")
+        self.log_file.flush()
+    
+    def flush(self):
+        self.original_stderr.flush()
+        self.log_file.flush()
 
 @dataclass
 class Course:
@@ -39,24 +97,63 @@ class Course:
 class CanvasAPI:
 
     def __init__(self, base_url: str, token: str):
-        self.base_url = base_url.rstrip('/')
+        # Clean up the URL and determine the API base
+        self.original_url = base_url.rstrip('/')
+        self.api_base = self._determine_api_base(base_url)
         self.token = token
         self.headers = {
             'Authorization': f'Bearer {token}',
             'Content-Type': 'application/json'
         }
     
+    def _determine_api_base(self, url: str) -> str:
+        """Determine the correct API base URL"""
+        url = url.rstrip('/')
+        
+        # If the URL already contains /api/v1, use it as-is
+        if '/api/v1' in url:
+            return url
+        
+        # If it's a basic Canvas URL, append the standard API path
+        return f"{url}/api/v1"
+    
+    @property
+    def base_url(self) -> str:
+        """Return the original URL for display purposes"""
+        return self.original_url
+    
     def make_request(self, endpoint: str) -> Any:
         
-        url = f"{self.base_url}/api/v1/{endpoint}"
+        url = f"{self.api_base}/{endpoint}"
         
         try:
+            print(f"Making Canvas API request to: {url}")
             request = urllib.request.Request(url, headers=self.headers)
-            with urllib.request.urlopen(request) as response:
-                return json.loads(response.read().decode())
+            with urllib.request.urlopen(request, timeout=30) as response:
+                data = json.loads(response.read().decode())
+                print(f"API request successful, received {len(data) if isinstance(data, list) else 'data'}")
+                return data
+        except urllib.error.HTTPError as e:
+            error_msg = f"HTTP {e.code} error: {e.reason}"
+            if e.code == 401:
+                error_msg += " - Check your access token"
+            elif e.code == 403:
+                error_msg += " - Access forbidden, check token permissions"
+            elif e.code == 404:
+                error_msg += " - API endpoint not found, check Canvas URL"
+            print(f"Canvas API request failed: {error_msg}")
+            print(f"Request URL: {url}")
+            raise Exception(error_msg)
+        except urllib.error.URLError as e:
+            error_msg = f"Network error: {e.reason}"
+            print(f"Canvas API request failed: {error_msg}")
+            print(f"Request URL: {url}")
+            raise Exception(error_msg)
         except Exception as e:
-            print(f"API request failed: {e}")
-            return []
+            error_msg = f"Request failed: {str(e)}"
+            print(f"Canvas API request failed: {error_msg}")
+            print(f"Request URL: {url}")
+            raise Exception(error_msg)
     
     def get_courses(self) -> List[Course]:
         courses_data = self.make_request("courses?enrollment_state=active&per_page=100")
@@ -143,8 +240,18 @@ class CanvasNotesServer(http.server.SimpleHTTPRequestHandler):
                 self.handle_courses_request()
             elif self.path == '/api/config':
                 self.handle_config_request()
+            elif self.path == '/api/test-connection':
+                self.handle_test_connection_request()
+            elif self.path == '/api/save-config':
+                self.handle_save_config_request()
             elif self.path == '/api/update-check':
                 self.handle_update_check()
+            elif self.path == '/api/src-update':
+                self.handle_src_update_request()
+            elif self.path == '/api/update-app':
+                self.handle_app_update_request()
+            elif self.path == '/api/update-complete':
+                self.handle_complete_update_request()
             elif self.path.startswith('/api/files'):
                 self.handle_file_request()
             else:
@@ -181,12 +288,20 @@ class CanvasNotesServer(http.server.SimpleHTTPRequestHandler):
     def handle_config_request(self):
         if self.command == 'GET':
             config = {}
+            print(f"Config request - app_instance exists: {self.app_instance is not None}")
             if self.app_instance and hasattr(self.app_instance, 'canvas_api'):
+                print(f"canvas_api exists: {self.app_instance.canvas_api is not None}")
                 if self.app_instance.canvas_api:
                     config = {
                         'canvas_url': self.app_instance.canvas_api.base_url,
+                        'canvas_token': self.app_instance.canvas_api.token,
                         'has_token': bool(self.app_instance.canvas_api.token)
                     }
+                    print(f"Sending config: {{'canvas_url': '{config['canvas_url']}', 'token_length': {len(config['canvas_token'])}, 'has_token': {config['has_token']}}}")
+                else:
+                    print("canvas_api is None")
+            else:
+                print("app_instance or canvas_api attribute missing")
             self.send_json_response(config)
         
         elif self.command == 'POST':
@@ -198,10 +313,182 @@ class CanvasNotesServer(http.server.SimpleHTTPRequestHandler):
                 success = self.app_instance.save_api_config_from_web(data)
                 self.send_json_response({'success': success})
     
+    def handle_test_connection_request(self):
+        """Handle API connection testing"""
+        if self.command == 'POST':
+            try:
+                content_length = int(self.headers['Content-Length'])
+                post_data = self.rfile.read(content_length)
+                data = json.loads(post_data.decode('utf-8'))
+                
+                url = data.get('canvas_url', '').strip()
+                token = data.get('canvas_token', '').strip()
+                
+                if not url or not token:
+                    self.send_json_response({
+                        'success': False, 
+                        'error': 'Both URL and token are required'
+                    })
+                    return
+                
+                print(f"Testing Canvas connection to: {url}")
+                
+                # Test the connection
+                test_api = CanvasAPI(url, token)
+                print(f"API will connect to: {test_api.api_base}")
+                
+                test_courses = test_api.get_courses()  # This will raise an exception if it fails
+                
+                self.send_json_response({
+                    'success': True, 
+                    'message': f'Connection successful! Found {len(test_courses)} courses.',
+                    'api_url': test_api.api_base,
+                    'course_count': len(test_courses)
+                })
+                
+            except Exception as e:
+                error_msg = str(e)
+                print(f"Canvas connection test failed: {error_msg}")
+                
+                # Provide helpful error messages
+                if "401" in error_msg:
+                    error_msg = "Invalid access token. Please check your Canvas API token."
+                elif "403" in error_msg:
+                    error_msg = "Access forbidden. Please check your token permissions."
+                elif "404" in error_msg:
+                    error_msg = "Canvas API not found. Please check your Canvas URL."
+                elif "Network error" in error_msg or "URLError" in error_msg:
+                    error_msg = f"Cannot connect to {url}. Please check the URL and your internet connection."
+                
+                self.send_json_response({
+                    'success': False, 
+                    'error': error_msg
+                })
+        else:
+            self.send_error(405)  # Method not allowed
+    
+    def handle_save_config_request(self):
+        """Handle saving API configuration"""
+        if self.command == 'POST':
+            try:
+                content_length = int(self.headers['Content-Length'])
+                post_data = self.rfile.read(content_length)
+                data = json.loads(post_data.decode('utf-8'))
+                
+                if self.app_instance:
+                    success = self.app_instance.save_api_config_from_web(data)
+                    if success:
+                        self.send_json_response({
+                            'success': True, 
+                            'message': 'Configuration saved successfully'
+                        })
+                    else:
+                        self.send_json_response({
+                            'success': False, 
+                            'error': 'Failed to save configuration'
+                        })
+                else:
+                    self.send_json_response({
+                        'success': False, 
+                        'error': 'App instance not available'
+                    })
+                    
+            except Exception as e:
+                self.send_json_response({
+                    'success': False, 
+                    'error': str(e)
+                })
+        else:
+            self.send_error(405)  # Method not allowed
+    
     def handle_update_check(self):
         if self.app_instance:
-            update_info = self.app_instance.check_for_updates_api()
-            self.send_json_response(update_info)
+            # Get both app and src update info
+            app_update_info = self.app_instance.check_for_updates_api()
+            src_update_info = self.app_instance.check_src_folder_status()
+            
+            combined_info = {
+                'app': app_update_info,
+                'src': src_update_info,
+                'dev_mode': DEV_MODE
+            }
+            self.send_json_response(combined_info)
+    
+    def handle_src_update_request(self):
+        if self.command == 'GET':
+            # Check if src folder needs updating
+            if self.app_instance:
+                src_status = self.app_instance.check_src_folder_status()
+                self.send_json_response(src_status)
+        elif self.command == 'POST':
+            # Update src folder
+            if self.app_instance:
+                success = self.app_instance.update_src_folder()
+                self.send_json_response({'success': success})
+    
+    def handle_app_update_request(self):
+        if self.command == 'POST':
+            # Trigger app update
+            if self.app_instance:
+                try:
+                    # Get latest version first
+                    update_info = self.app_instance.check_for_updates_api()
+                    if update_info.get('has_update', False):
+                        latest_version = update_info.get('latest_version', 'unknown')
+                        
+                        # Start update process in a separate thread
+                        import threading
+                        update_thread = threading.Thread(
+                            target=self.app_instance.start_update_process, 
+                            args=(latest_version,), 
+                            daemon=True
+                        )
+                        update_thread.start()
+                        
+                        self.send_json_response({'success': True, 'message': 'Update started'})
+                    else:
+                        self.send_json_response({'success': False, 'message': 'No update available'})
+                except Exception as e:
+                    self.send_json_response({'success': False, 'message': str(e)})
+            else:
+                self.send_json_response({'success': False, 'message': 'App instance not available'})
+    
+    def handle_complete_update_request(self):
+        if self.command == 'POST':
+            # Handle complete update (both app and src)
+            if self.app_instance:
+                try:
+                    content_length = int(self.headers.get('Content-Length', 0))
+                    if content_length > 0:
+                        post_data = self.rfile.read(content_length)
+                        data = json.loads(post_data.decode('utf-8'))
+                        update_app = data.get('update_app', True)
+                        update_src = data.get('update_src', True)
+                    else:
+                        update_app = True
+                        update_src = True
+                    
+                    # Perform the update in a separate thread
+                    import threading
+                    
+                    def update_thread():
+                        results = self.app_instance.perform_complete_update(update_app, update_src)
+                        print(f"Update results: {results}")
+                    
+                    thread = threading.Thread(target=update_thread, daemon=True)
+                    thread.start()
+                    
+                    self.send_json_response({
+                        'success': True, 
+                        'message': 'Update process started',
+                        'updating_app': update_app,
+                        'updating_src': update_src
+                    })
+                    
+                except Exception as e:
+                    self.send_json_response({'success': False, 'message': str(e)})
+            else:
+                self.send_json_response({'success': False, 'message': 'App instance not available'})
     
     def handle_file_request(self):
         path_parts = self.path.split('/')
@@ -249,8 +536,19 @@ class SimpleDashboardApp:
         self.data_file = self.data_dir / "canvas_courses.json"
         self.config_file = self.data_dir / "canvas_config.json"
         
-        # Check if src folder exists, download if not
-        self.ensure_src_folder_exists()
+        # Set src directory based on dev mode
+        if DEV_MODE:
+            # Use local src folder for development
+            script_dir = Path(os.path.dirname(os.path.abspath(__file__)))
+            self.src_dir = script_dir / "src"
+            print("DEV MODE: Using local src folder")
+        else:
+            # Use data directory src folder for production
+            self.src_dir = self.data_dir / "src"
+        
+        # Check if src folder exists, download if not (only in production mode)
+        if not DEV_MODE:
+            self.ensure_src_folder_exists()
         
         self.load_config()
         self.load_hidden_courses()
@@ -334,8 +632,8 @@ class SimpleDashboardApp:
     
     def setup_window(self):
         self.root.title("Canvas Notes Server")
-        self.root.geometry("400x300")
-        self.root.minsize(400, 300)
+        self.root.geometry("400x400")
+        self.root.minsize(400, 400)
         
         # Create simple server status window
         main_frame = tk.Frame(self.root, bg="#0f1419")
@@ -356,6 +654,89 @@ class SimpleDashboardApp:
                                  fg="#8892b0", bg="#0f1419")
         self.url_label.pack(pady=5)
         
+        # API Configuration Frame
+        config_frame = tk.LabelFrame(main_frame, text="API Configuration", 
+                                   font=("Segoe UI", 10, "bold"),
+                                   fg="#4a9eff", bg="#0f1419", bd=1, relief="solid")
+        config_frame.pack(pady=10, fill=tk.X)
+        
+        # Canvas URL Entry
+        url_frame = tk.Frame(config_frame, bg="#0f1419")
+        url_frame.pack(pady=5, fill=tk.X, padx=10)
+        
+        tk.Label(url_frame, text="Canvas URL:", 
+                font=("Segoe UI", 9),
+                fg="#ffffff", bg="#0f1419").pack(anchor=tk.W)
+        
+        self.url_entry = tk.Entry(url_frame, font=("Segoe UI", 9),
+                                 bg="#1e2530", fg="#ffffff", insertbackground="#ffffff")
+        self.url_entry.pack(fill=tk.X, pady=(2, 0))
+        
+        # Token Entry
+        token_frame = tk.Frame(config_frame, bg="#0f1419")
+        token_frame.pack(pady=5, fill=tk.X, padx=10)
+        
+        tk.Label(token_frame, text="Access Token:", 
+                font=("Segoe UI", 9),
+                fg="#ffffff", bg="#0f1419").pack(anchor=tk.W)
+        
+        self.token_entry = tk.Entry(token_frame, font=("Segoe UI", 9), show="*",
+                                   bg="#1e2530", fg="#ffffff", insertbackground="#ffffff")
+        self.token_entry.pack(fill=tk.X, pady=(2, 0))
+        
+        # Config buttons
+        config_btn_frame = tk.Frame(config_frame, bg="#0f1419")
+        config_btn_frame.pack(pady=10, padx=10)
+        
+        self.save_config_btn = tk.Button(config_btn_frame, text="Save Config", 
+                                        command=self.save_api_config_gui,
+                                        bg="#28a745", fg="white",
+                                        font=("Segoe UI", 9, "bold"),
+                                        padx=15, pady=5, cursor="hand2")
+        self.save_config_btn.pack(side=tk.LEFT, padx=(0, 5))
+        
+        self.test_config_btn = tk.Button(config_btn_frame, text="Test Connection", 
+                                        command=self.test_api_connection,
+                                        bg="#17a2b8", fg="white",
+                                        font=("Segoe UI", 9, "bold"),
+                                        padx=15, pady=5, cursor="hand2")
+        self.test_config_btn.pack(side=tk.LEFT, padx=5)
+        
+        # Load existing config into fields
+        self.load_config_into_gui()
+        
+        # Options dropdown menu
+        options_frame = tk.Frame(main_frame, bg="#0f1419")
+        options_frame.pack(pady=10, fill=tk.X)
+        
+        self.options_var = tk.StringVar(value="Options ▼")
+        self.options_menu = tk.Menubutton(options_frame, textvariable=self.options_var,
+                                         bg="#6c757d", fg="white", 
+                                         font=("Segoe UI", 10, "bold"),
+                                         padx=15, pady=8, cursor="hand2",
+                                         relief=tk.RAISED, bd=1)
+        self.options_menu.pack()
+        
+        # Create dropdown menu
+        self.dropdown_menu = tk.Menu(self.options_menu, tearoff=0,
+                                    bg="#2d3748", fg="white",
+                                    activebackground="#4a9eff", activeforeground="white")
+        self.options_menu.config(menu=self.dropdown_menu)
+        
+        # Add menu items
+        self.dropdown_menu.add_command(label="Check for Updates", command=self.check_updates_manual)
+        self.dropdown_menu.add_command(label="Update src Files", command=self.update_src_manual)
+        self.dropdown_menu.add_separator()
+        self.dropdown_menu.add_command(label="Refresh Courses", command=self.refresh_courses_manual)
+        self.dropdown_menu.add_separator()
+        self.dropdown_menu.add_command(label="Open Data Folder", command=self.open_data_folder)
+        self.dropdown_menu.add_command(label="Clear Cache", command=self.clear_cache)
+        self.dropdown_menu.add_separator()
+        if DEV_MODE:
+            self.dropdown_menu.add_command(label="DEV MODE: ON", state=tk.DISABLED)
+        else:
+            self.dropdown_menu.add_command(label="Production Mode", state=tk.DISABLED)
+        
         button_frame = tk.Frame(main_frame, bg="#0f1419")
         button_frame.pack(pady=20)
         
@@ -375,13 +756,189 @@ class SimpleDashboardApp:
         
         self.root.configure(bg="#0f1419")
     
+    def load_config_into_gui(self):
+        """Load existing configuration into GUI fields"""
+        if hasattr(self, 'canvas_api') and self.canvas_api:
+            self.url_entry.delete(0, tk.END)
+            self.url_entry.insert(0, self.canvas_api.base_url)
+            
+            self.token_entry.delete(0, tk.END)
+            self.token_entry.insert(0, self.canvas_api.token)
+    
+    def save_api_config_gui(self):
+        """Save API configuration from GUI"""
+        url = self.url_entry.get().strip()
+        token = self.token_entry.get().strip()
+        
+        if not url or not token:
+            messagebox.showerror("Error", "Please enter both Canvas URL and Access Token")
+            return
+        
+        # Test the configuration first
+        if self.test_api_connection(silent=True):
+            messagebox.showinfo("Success", "API configuration saved and tested successfully!")
+        else:
+            result = messagebox.askyesno("Warning", 
+                "API test failed. Save configuration anyway?")
+            if not result:
+                return
+    
+    def test_api_connection(self, silent=False):
+        """Test API connection"""
+        url = self.url_entry.get().strip()
+        token = self.token_entry.get().strip()
+        
+        if not url or not token:
+            if not silent:
+                messagebox.showerror("Error", "Please enter both Canvas URL and Access Token")
+            return False
+        
+        try:
+            # Test the API connection
+            test_api = CanvasAPI(url, token)
+            test_courses = test_api.get_courses()
+            
+            # If successful, save the configuration
+            self.canvas_api = test_api
+            
+            # Save to config file
+            config_data = {}
+            if self.config_file.exists():
+                with open(self.config_file, 'r') as f:
+                    config_data = json.load(f)
+            
+            config_data.update({
+                'canvas_url': url,
+                'canvas_token': token,
+                'last_updated': datetime.now().isoformat()
+            })
+            
+            with open(self.config_file, 'w') as f:
+                json.dump(config_data, f, indent=2)
+            
+            # Refresh courses
+            self.refresh_courses_from_api()
+            
+            if not silent:
+                messagebox.showinfo("Success", 
+                    f"Connection successful! Found {len(test_courses)} courses.")
+            
+            return True
+            
+        except Exception as e:
+            if not silent:
+                messagebox.showerror("Connection Failed", 
+                    f"Failed to connect to Canvas API:\n{str(e)}")
+            return False
+    
+    def check_updates_manual(self):
+        """Manually check for updates"""
+        try:
+            update_info = self.check_all_updates()
+            
+            app_info = update_info.get('app', {})
+            src_info = update_info.get('src', {})
+            
+            message_parts = []
+            
+            # App update info
+            if app_info.get('has_update', False):
+                latest = app_info.get('latest_version', 'unknown')
+                current = app_info.get('current_version', 'unknown')
+                message_parts.append(f"App Update Available: {current} → {latest}")
+            else:
+                message_parts.append("App: Up to date")
+            
+            # Src update info
+            if not DEV_MODE:
+                if src_info.get('needs_update', False):
+                    message_parts.append("Interface Files: Update available")
+                else:
+                    message_parts.append("Interface Files: Up to date")
+            else:
+                message_parts.append("Interface Files: Dev mode (local files)")
+            
+            message = "\n".join(message_parts)
+            
+            if update_info.get('has_any_update', False):
+                result = messagebox.askyesno("Updates Available", 
+                    f"{message}\n\nWould you like to update now?")
+                if result:
+                    self.perform_complete_update()
+            else:
+                messagebox.showinfo("No Updates", message)
+                
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to check for updates:\n{str(e)}")
+    
+    def update_src_manual(self):
+        """Manually update src files"""
+        if DEV_MODE:
+            messagebox.showinfo("Dev Mode", "src file updates are disabled in development mode")
+            return
+        
+        try:
+            success = self.update_src_folder()
+            if success:
+                messagebox.showinfo("Success", "Interface files updated successfully!")
+            else:
+                messagebox.showerror("Error", "Failed to update interface files")
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to update interface files:\n{str(e)}")
+    
+    def refresh_courses_manual(self):
+        """Manually refresh courses"""
+        if not self.canvas_api:
+            messagebox.showerror("Error", "Please configure Canvas API first")
+            return
+        
+        try:
+            success = self.refresh_courses_from_api()
+            if success:
+                course_count = len(self.courses)
+                messagebox.showinfo("Success", f"Courses refreshed! Found {course_count} courses.")
+            else:
+                messagebox.showerror("Error", "Failed to refresh courses")
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to refresh courses:\n{str(e)}")
+    
+    def open_data_folder(self):
+        """Open the data folder in file explorer"""
+        try:
+            if os.name == 'nt':  # Windows
+                os.startfile(str(self.data_dir))
+            elif os.name == 'posix':  # macOS and Linux
+                subprocess.call(['open' if sys.platform == 'darwin' else 'xdg-open', str(self.data_dir)])
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to open data folder:\n{str(e)}")
+    
+    def clear_cache(self):
+        """Clear cached data"""
+        result = messagebox.askyesno("Clear Cache", 
+            "This will clear cached course data. Are you sure?")
+        if result:
+            try:
+                if self.data_file.exists():
+                    self.data_file.unlink()
+                self.courses = []
+                messagebox.showinfo("Success", "Cache cleared successfully!")
+            except Exception as e:
+                messagebox.showerror("Error", f"Failed to clear cache:\n{str(e)}")
+    
     def start_web_server(self):
         try:
             # Find available port
             self.server_port = self.find_free_port()
             
-            # Change to the directory containing src folder
-            os.chdir(os.path.dirname(os.path.abspath(__file__)))
+            # Change to the appropriate directory based on dev mode
+            if DEV_MODE:
+                # In dev mode, use the script directory
+                script_dir = Path(os.path.dirname(os.path.abspath(__file__)))
+                os.chdir(str(script_dir))
+                print("DEV MODE: Serving from script directory")
+            else:
+                # In production mode, use the data directory
+                os.chdir(str(self.data_dir))
             
             # Create server with custom handler
             handler = lambda *args, **kwargs: CanvasNotesServer(*args, app_instance=self, **kwargs)
@@ -394,6 +951,7 @@ class SimpleDashboardApp:
             server_url = f"http://localhost:{self.server_port}"
             print("Server running successfully!")
             print(f"Server URL: {server_url}")
+            print(f"Serving src from: {self.src_dir}")
             
             # Only update GUI elements if they exist (tkinter mode)
             if hasattr(self, 'status_label'):
@@ -414,16 +972,17 @@ class SimpleDashboardApp:
         return port
     
     def ensure_src_folder_exists(self):
-        """Check if src folder exists, download from latest release if not"""
-        script_dir = Path(os.path.dirname(os.path.abspath(__file__)))
-        src_dir = script_dir / "src"
-        
-        if src_dir.exists() and self.validate_src_folder(src_dir):
+        """Check if src folder exists in data directory, download from latest release if not"""
+        if DEV_MODE:
+            print("DEV MODE: Skipping src folder download check")
+            return
+            
+        if self.src_dir.exists() and self.validate_src_folder(self.src_dir):
             print("src folder found and valid")
             return
         
         print("src folder missing or incomplete, downloading from latest release...")
-        self.download_src_folder(script_dir)
+        self.download_src_folder()
     
     def validate_src_folder(self, src_dir):
         """Validate that src folder has required files"""
@@ -437,7 +996,7 @@ class SimpleDashboardApp:
         
         return True
     
-    def download_src_folder(self, script_dir):
+    def download_src_folder(self):
         """Download src folder files directly from GitHub repository"""
         try:
             print("Downloading src files from GitHub repository...")
@@ -453,9 +1012,8 @@ class SimpleDashboardApp:
                 'updater.js': 'updater.js'
             }
             
-            # Create src directory
-            src_dir = script_dir / "src"
-            src_dir.mkdir(exist_ok=True)
+            # Create src directory in data folder
+            self.src_dir.mkdir(exist_ok=True)
             
             # Download each file
             downloaded_files = 0
@@ -469,7 +1027,7 @@ class SimpleDashboardApp:
                         content = response.read()
                     
                     # Write file to src directory
-                    file_path = src_dir / filename
+                    file_path = self.src_dir / filename
                     with open(file_path, 'wb') as f:
                         f.write(content)
                     
@@ -483,7 +1041,7 @@ class SimpleDashboardApp:
                 print(f"Successfully downloaded {downloaded_files}/{len(src_files)} files")
                 
                 # Validate downloaded files
-                if self.validate_src_folder(src_dir):
+                if self.validate_src_folder(self.src_dir):
                     print("src folder downloaded and validated successfully!")
                     return
             
@@ -494,14 +1052,13 @@ class SimpleDashboardApp:
             print("Creating minimal fallback src folder...")
             
             # Create minimal fallback files if download fails
-            self.create_minimal_src_folder(script_dir)
+            self.create_minimal_src_folder()
     
-    def create_minimal_src_folder(self, script_dir):
+    def create_minimal_src_folder(self):
         """Create minimal src folder with basic files if download fails"""
         print("Creating minimal src folder as fallback...")
         
-        src_dir = script_dir / "src"
-        src_dir.mkdir(exist_ok=True)
+        self.src_dir.mkdir(exist_ok=True)
         
         # Create minimal HTML
         html_content = """<!DOCTYPE html>
@@ -558,10 +1115,10 @@ class SimpleDashboardApp:
         updater_content = """console.log('Canvas Notes Updater - Minimal Mode');"""
         
         # Write files
-        (src_dir / "index.html").write_text(html_content, encoding='utf-8')
-        (src_dir / "styles.css").write_text(css_content, encoding='utf-8')
-        (src_dir / "app.js").write_text(js_content, encoding='utf-8')
-        (src_dir / "updater.js").write_text(updater_content, encoding='utf-8')
+        (self.src_dir / "index.html").write_text(html_content, encoding='utf-8')
+        (self.src_dir / "styles.css").write_text(css_content, encoding='utf-8')
+        (self.src_dir / "app.js").write_text(js_content, encoding='utf-8')
+        (self.src_dir / "updater.js").write_text(updater_content, encoding='utf-8')
         
         print("Minimal src folder created successfully")
     
@@ -644,13 +1201,177 @@ class SimpleDashboardApp:
                 'current_version': APP_VERSION,
                 'latest_version': latest_version
             }
-        except Exception:
+        except Exception as e:
             return {
                 'has_update': False,
                 'current_version': APP_VERSION,
                 'latest_version': APP_VERSION,
-                'error': 'Failed to check for updates'
+                'error': f'Failed to check for updates: {str(e)}'
             }
+    
+    def check_all_updates(self):
+        """Check for both app and src updates"""
+        app_update = self.check_for_updates_api()
+        src_update = self.check_src_folder_status()
+        
+        return {
+            'app': app_update,
+            'src': src_update,
+            'has_any_update': app_update.get('has_update', False) or src_update.get('needs_update', False),
+            'dev_mode': DEV_MODE
+        }
+    
+    def check_src_folder_status(self):
+        """Check if src folder needs updating by comparing file checksums"""
+        try:
+            if DEV_MODE:
+                return {
+                    'needs_update': False,
+                    'reason': 'Dev mode - using local src folder',
+                    'files_checked': len(list(self.src_dir.glob('*'))) if self.src_dir.exists() else 0,
+                    'dev_mode': True
+                }
+            
+            if not self.src_dir.exists():
+                return {
+                    'needs_update': True,
+                    'reason': 'src folder missing',
+                    'files_checked': 0
+                }
+            
+            # GitHub API to get latest commit info for src folder
+            api_url = "https://api.github.com/repos/Giraffe801/CanvasNotes/commits?path=src&per_page=1"
+            
+            request = urllib.request.Request(api_url)
+            with urllib.request.urlopen(request, timeout=10) as response:
+                commits = json.loads(response.read().decode())
+            
+            if not commits:
+                return {
+                    'needs_update': False,
+                    'reason': 'Unable to check remote updates',
+                    'files_checked': 0
+                }
+            
+            latest_commit_sha = commits[0]['sha']
+            
+            # Check if we have stored the last update commit
+            stored_commit = self.get_stored_src_commit()
+            
+            needs_update = stored_commit != latest_commit_sha
+            
+            # Count local files
+            local_files = len(list(self.src_dir.glob('*.html'))) + len(list(self.src_dir.glob('*.css'))) + len(list(self.src_dir.glob('*.js')))
+            
+            return {
+                'needs_update': needs_update,
+                'reason': 'New version available' if needs_update else 'Up to date',
+                'files_checked': local_files,
+                'local_commit': stored_commit[:8] if stored_commit else 'unknown',
+                'remote_commit': latest_commit_sha[:8]
+            }
+            
+        except Exception as e:
+            return {
+                'needs_update': False,
+                'reason': f'Error checking updates: {str(e)}',
+                'files_checked': 0
+            }
+    
+    def get_stored_src_commit(self):
+        """Get the stored commit hash for src folder"""
+        try:
+            config = {}
+            if self.config_file.exists():
+                with open(self.config_file, 'r') as f:
+                    config = json.load(f)
+            return config.get('src_commit_hash', '')
+        except:
+            return ''
+    
+    def store_src_commit(self, commit_hash):
+        """Store the commit hash for src folder"""
+        try:
+            config = {}
+            if self.config_file.exists():
+                with open(self.config_file, 'r') as f:
+                    config = json.load(f)
+            
+            config['src_commit_hash'] = commit_hash
+            config['src_last_updated'] = datetime.now().isoformat()
+            
+            with open(self.config_file, 'w') as f:
+                json.dump(config, f, indent=2)
+        except Exception as e:
+            print(f"Failed to store src commit hash: {e}")
+    
+    def update_src_folder(self):
+        """Update the src folder with latest files from GitHub"""
+        try:
+            if DEV_MODE:
+                print("DEV MODE: Skipping src folder update - using local files")
+                return False
+                
+            print("Updating src folder...")
+            
+            # Get latest commit hash first
+            api_url = "https://api.github.com/repos/Giraffe801/CanvasNotes/commits?path=src&per_page=1"
+            request = urllib.request.Request(api_url)
+            with urllib.request.urlopen(request, timeout=10) as response:
+                commits = json.loads(response.read().decode())
+            
+            if commits:
+                latest_commit_sha = commits[0]['sha']
+            else:
+                latest_commit_sha = 'unknown'
+            
+            # Download the updated files
+            self.download_src_folder()
+            
+            # Store the commit hash
+            self.store_src_commit(latest_commit_sha)
+            
+            print("src folder updated successfully!")
+            return True
+            
+        except Exception as e:
+            print(f"Failed to update src folder: {e}")
+            return False
+    
+    def perform_complete_update(self, update_app=True, update_src=True):
+        """Perform a complete update of both app and src if requested"""
+        results = {
+            'app_updated': False,
+            'src_updated': False,
+            'errors': []
+        }
+        
+        try:
+            # Update src folder first if requested and not in dev mode
+            if update_src and not DEV_MODE:
+                print("Updating src folder...")
+                src_success = self.update_src_folder()
+                results['src_updated'] = src_success
+                if not src_success:
+                    results['errors'].append("Failed to update src folder")
+            
+            # Update app if requested
+            if update_app:
+                print("Checking for app updates...")
+                app_update_info = self.check_for_updates_api()
+                if app_update_info.get('has_update', False):
+                    latest_version = app_update_info.get('latest_version')
+                    print(f"Starting app update to version {latest_version}...")
+                    self.start_update_process(latest_version)
+                    results['app_updated'] = True
+                else:
+                    results['errors'].append("No app update available")
+            
+            return results
+            
+        except Exception as e:
+            results['errors'].append(f"Update process failed: {str(e)}")
+            return results
     
     def get_course_files(self, course_name):
         try:
@@ -714,10 +1435,17 @@ class SimpleDashboardApp:
             try:
                 with open(self.config_file, 'r') as f:
                     config = json.load(f)
+                    print(f"Loaded config from file: {config}")
                     if config.get('canvas_url') and config.get('canvas_token'):
+                        print(f"Creating CanvasAPI with URL: {config['canvas_url']}")
                         self.canvas_api = CanvasAPI(config['canvas_url'], config['canvas_token'])
+                        print("CanvasAPI created successfully")
+                    else:
+                        print("Config missing canvas_url or canvas_token")
             except Exception as e:
                 print(f"Failed to load config: {e}")
+        else:
+            print(f"Config file does not exist: {self.config_file}")
 
     def save_courses_to_cache(self, courses: List[Course]):
         try:
@@ -811,22 +1539,29 @@ class SimpleDashboardApp:
         """Check for updates on startup"""
         if not self.check_internet_connection():
             return
-            
-        import urllib.request
-        version_url = "https://raw.githubusercontent.com/Giraffe801/CanvasNotes/main/version.txt"
         
         try:
-            with urllib.request.urlopen(version_url, timeout=5) as response:
-                latest_version = response.read().decode().strip()
-            if latest_version != APP_VERSION:
+            # Get comprehensive update info
+            update_info = self.check_all_updates()
+            
+            # Handle app updates
+            app_info = update_info.get('app', {})
+            if app_info.get('has_update', False):
+                latest_version = app_info.get('latest_version', 'unknown')
                 self.show_update_notification(latest_version)
-        except Exception:
-            pass
+            
+            # Handle src updates (only in production mode)
+            if not DEV_MODE:
+                src_info = update_info.get('src', {})
+                if src_info.get('needs_update', False):
+                    self.show_src_update_notification()
+                    
+        except Exception as e:
+            print(f"Error checking for updates: {e}")
 
     def check_internet_connection(self):
         """Check if internet connection is available"""
         try:
-            import urllib.request
             with urllib.request.urlopen('http://www.google.com', timeout=3):
                 return True
         except:
@@ -834,21 +1569,49 @@ class SimpleDashboardApp:
 
     def show_update_notification(self, latest_version):
         """Show update notification"""
-        import tkinter.messagebox as messagebox
-        result = messagebox.askyesno(
-            "Update Available", 
-            f"Version {latest_version} is available. Would you like to update?"
-        )
-        if result:
-            self.start_update_process(latest_version)
+        if hasattr(self, 'root') and self.root:
+            # Tkinter mode
+            result = messagebox.askyesno(
+                "Update Available", 
+                f"Version {latest_version} is available. Would you like to update?"
+            )
+            if result:
+                self.start_update_process(latest_version)
+        else:
+            # Webview mode or no GUI - just print for now
+            print(f"Update Available: Version {latest_version} is available")
+            print("Update can be triggered via web interface")
+    
+    def show_src_update_notification(self):
+        """Show src folder update notification"""
+        if hasattr(self, 'root') and self.root:
+            # Tkinter mode
+            result = messagebox.askyesno(
+                "Interface Update Available", 
+                "New web interface files are available. Would you like to update them?"
+            )
+            if result:
+                success = self.update_src_folder()
+                if success:
+                    messagebox.showinfo("Update Complete", "Web interface files updated successfully!")
+                else:
+                    messagebox.showerror("Update Failed", "Failed to update web interface files.")
+        else:
+            # Webview mode or no GUI - just print for now
+            print("Interface Update Available: New web interface files are available")
+            print("Update can be triggered via web interface")
 
     def start_update_process(self, latest_version):
         """Start the update process"""
         try:
-            import urllib.request
-            import sys
-            import tempfile
-            import os
+            # First update the src folder if not in dev mode
+            if not DEV_MODE:
+                print("Updating src folder before application update...")
+                try:
+                    self.update_src_folder()
+                    print("src folder updated successfully")
+                except Exception as e:
+                    print(f"Failed to update src folder: {e}")
             
             exe_url = "https://github.com/Giraffe801/CanvasNotes/releases/latest/download/canvas_dashboard.exe"
             
@@ -867,15 +1630,45 @@ start "" "{old_exe}"
 del "%~f0"
 """)
             os.startfile(bat_path)
-            self.root.destroy()
+            if hasattr(self, 'root') and self.root:
+                self.root.destroy()
         except Exception as e:
-            import tkinter.messagebox as messagebox
-            messagebox.showerror("Update Failed", f"Update failed: {e}")
+            if hasattr(self, 'root'):
+                messagebox.showerror("Update Failed", f"Update failed: {e}")
+            else:
+                print(f"Update failed: {e}")
 
 
 def main():
-    app = SimpleDashboardApp()
-    app.run()
+    dev_logger = None
+    error_logger = None
+    
+    # Initialize dev mode logging if enabled
+    if DEV_MODE:
+        try:
+            script_dir = Path(os.path.dirname(os.path.abspath(__file__)))
+            src_dir = script_dir / "src"
+            src_dir.mkdir(exist_ok=True)
+            log_file_path = src_dir / "canvas_dashboard.log"
+            
+            dev_logger = DevLogger(log_file_path)
+            error_logger = DevErrorLogger(dev_logger.log_file, sys.stderr)
+            
+            sys.stdout = dev_logger
+            sys.stderr = error_logger
+            
+            print(f"DEV MODE: Logging enabled to {log_file_path}")
+            
+        except Exception as e:
+            print(f"Failed to initialize dev logging: {e}")
+    
+    try:
+        app = SimpleDashboardApp()
+        app.run()
+    finally:
+        # Clean up logger
+        if dev_logger:
+            dev_logger.close()
 
 if __name__ == "__main__":
     main()
