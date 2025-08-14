@@ -26,8 +26,12 @@ except ImportError:
     HAS_WEBVIEW = False
     import webbrowser
 
-APP_VERSION = "0.1.0"
-DEV_MODE = True
+# Canvas Notes Dashboard
+# Updated to only download new exe when applicable and HTML file with embedded CSS
+# No longer downloads separate CSS, JS, or updater files
+
+APP_VERSION = "0.0.0"
+DEV_MODE = False
 
 class DevLogger:
     """Logger class for dev mode that saves console output to a log file"""
@@ -217,17 +221,65 @@ class CanvasNotesServer(http.server.SimpleHTTPRequestHandler):
         super().__init__(*args, **kwargs)
     
     def do_GET(self):
+        print(f"GET request for: {self.path}")
+        
         if self.path == '/':
-            self.path = '/src/index.html'
+            # Serve index.html from src directory
+            self.serve_src_file('index.html')
+            return
         elif self.path.startswith('/api/'):
             self.handle_api_request()
             return
-        elif not self.path.startswith('/src/'):
-            # Redirect requests for CSS, JS, and other assets to src folder
-            if self.path.startswith('/'):
-                self.path = '/src' + self.path
-        return super().do_GET()
+        elif self.path.startswith('/src/'):
+            # Remove /src/ prefix and serve from src directory
+            filename = self.path[5:]  # Remove '/src/' prefix
+            self.serve_src_file(filename)
+            return
+        else:
+            # For other paths, try to serve from src directory
+            filename = self.path.lstrip('/')
+            self.serve_src_file(filename)
+            return
     
+    def serve_src_file(self, filename):
+        """Serve a file from the src directory"""
+        try:
+            if self.app_instance and hasattr(self.app_instance, 'src_dir'):
+                file_path = self.app_instance.src_dir / filename
+                print(f"Trying to serve: {file_path}")
+                
+                if file_path.exists() and file_path.is_file():
+                    # Determine content type
+                    content_type = 'text/html'
+                    if filename.endswith('.css'):
+                        content_type = 'text/css'
+                    elif filename.endswith('.js'):
+                        content_type = 'application/javascript'
+                    elif filename.endswith('.json'):
+                        content_type = 'application/json'
+                    
+                    # Read and serve the file
+                    with open(file_path, 'rb') as f:
+                        content = f.read()
+                    
+                    self.send_response(200)
+                    self.send_header('Content-type', content_type)
+                    self.send_header('Content-Length', len(content))
+                    self.send_header('Cache-Control', 'no-cache')
+                    self.end_headers()
+                    self.wfile.write(content)
+                    print(f"Successfully served: {filename}")
+                    return
+                else:
+                    print(f"File not found: {file_path}")
+            
+            # File not found
+            self.send_error(404, f"File not found: {filename}")
+            
+        except Exception as e:
+            print(f"Error serving file {filename}: {e}")
+            self.send_error(500, f"Server error: {str(e)}")
+
     def do_POST(self):
         if self.path.startswith('/api/'):
             self.handle_api_request()
@@ -930,15 +982,9 @@ class SimpleDashboardApp:
             # Find available port
             self.server_port = self.find_free_port()
             
-            # Change to the appropriate directory based on dev mode
-            if DEV_MODE:
-                # In dev mode, use the script directory
-                script_dir = Path(os.path.dirname(os.path.abspath(__file__)))
-                os.chdir(str(script_dir))
-                print("DEV MODE: Serving from script directory")
-            else:
-                # In production mode, use the data directory
-                os.chdir(str(self.data_dir))
+            # DON'T change working directory - serve files directly from src_dir
+            print(f"Starting server on port {self.server_port}")
+            print(f"Will serve src files from: {self.src_dir}")
             
             # Create server with custom handler
             handler = lambda *args, **kwargs: CanvasNotesServer(*args, app_instance=self, **kwargs)
@@ -952,6 +998,13 @@ class SimpleDashboardApp:
             print("Server running successfully!")
             print(f"Server URL: {server_url}")
             print(f"Serving src from: {self.src_dir}")
+            
+            # Check if src files exist
+            if self.src_dir.exists():
+                src_files = list(self.src_dir.glob('*'))
+                print(f"Available src files: {[f.name for f in src_files]}")
+            else:
+                print("WARNING: src directory does not exist!")
             
             # Only update GUI elements if they exist (tkinter mode)
             if hasattr(self, 'status_label'):
@@ -973,79 +1026,116 @@ class SimpleDashboardApp:
     
     def ensure_src_folder_exists(self):
         """Check if src folder exists in data directory, download from latest release if not"""
-        if DEV_MODE:
-            print("DEV MODE: Skipping src folder download check")
-            return
+        # if DEV_MODE:
+        #     print("DEV MODE: Skipping src folder download check")
+        #     return True
             
+        print(f"Checking src folder at: {self.src_dir}")
+        
         if self.src_dir.exists() and self.validate_src_folder(self.src_dir):
             print("src folder found and valid")
-            return
+            return True
         
         print("src folder missing or incomplete, downloading from latest release...")
-        self.download_src_folder()
+        success = self.download_src_folder()
+        
+        if not success:
+            print("Failed to download src folder, creating minimal fallback...")
+            self.create_minimal_src_folder()
+            return False
+        
+        return True
     
     def validate_src_folder(self, src_dir):
         """Validate that src folder has required files"""
-        required_files = ['index.html', 'styles.css', 'app.js', 'updater.js']
+        required_files = ['index.html']  # Only HTML file needed now
         
         for file_name in required_files:
             file_path = src_dir / file_name
             if not file_path.exists():
                 print(f"Missing required file: {file_name}")
                 return False
+            
+            # Check if HTML file has minimum content
+            if file_name == 'index.html':
+                try:
+                    content = file_path.read_text(encoding='utf-8')
+                    if len(content) < 1000:  # Ensure it's not an empty or error page
+                        print(f"HTML file appears to be incomplete ({len(content)} bytes)")
+                        return False
+                except Exception as e:
+                    print(f"Error reading HTML file: {e}")
+                    return False
         
         return True
     
     def download_src_folder(self):
-        """Download src folder files directly from GitHub repository"""
+        """Download only the HTML file from GitHub repository"""
         try:
-            print("Downloading src files from GitHub repository...")
+            print("Downloading HTML file from GitHub repository...")
             
             # GitHub raw content base URL
             base_url = "https://raw.githubusercontent.com/Giraffe801/CanvasNotes/main/src/"
             
-            # List of files to download from src folder
+            # Only download the HTML file since CSS is embedded and no JS needed
             src_files = {
-                'index.html': 'index.html',
-                'styles.css': 'styles.css', 
-                'app.js': 'app.js',
-                'updater.js': 'updater.js'
+                'index.html': 'index.html'
             }
             
             # Create src directory in data folder
             self.src_dir.mkdir(exist_ok=True)
+            print(f"Created src directory: {self.src_dir}")
             
-            # Download each file
+            # Download the HTML file
             downloaded_files = 0
             for filename, url_path in src_files.items():
                 try:
                     file_url = base_url + url_path
-                    print(f"Downloading {filename}...")
+                    print(f"Downloading {filename} from {file_url}...")
                     
+                    # Add headers to avoid GitHub rate limiting
                     request = urllib.request.Request(file_url)
-                    with urllib.request.urlopen(request, timeout=10) as response:
+                    request.add_header('User-Agent', 'CanvasNotes/1.0')
+                    
+                    with urllib.request.urlopen(request, timeout=30) as response:
                         content = response.read()
+                        print(f"Downloaded {len(content)} bytes for {filename}")
                     
                     # Write file to src directory
                     file_path = self.src_dir / filename
                     with open(file_path, 'wb') as f:
                         f.write(content)
                     
-                    downloaded_files += 1
-                    print(f"✓ Downloaded {filename}")
+                    # Verify the file was written
+                    if file_path.exists():
+                        file_size = file_path.stat().st_size
+                        print(f"✓ Saved {filename} ({file_size} bytes)")
+                        downloaded_files += 1
+                    else:
+                        print(f"✗ Failed to save {filename}")
                     
                 except Exception as e:
                     print(f"✗ Failed to download {filename}: {e}")
             
-            if downloaded_files >= 3:  # At least 3 core files downloaded
+            print(f"Download complete: {downloaded_files}/{len(src_files)} files")
+            
+            if downloaded_files >= 1:  # At least the HTML file downloaded
                 print(f"Successfully downloaded {downloaded_files}/{len(src_files)} files")
+                
+                # List what we actually have
+                print("Files in src directory:")
+                for file_path in self.src_dir.glob('*'):
+                    print(f"  - {file_path.name} ({file_path.stat().st_size} bytes)")
                 
                 # Validate downloaded files
                 if self.validate_src_folder(self.src_dir):
                     print("src folder downloaded and validated successfully!")
-                    return
+                    return True
+                else:
+                    print("src folder validation failed")
             
-            raise Exception(f"Only {downloaded_files}/{len(src_files)} files downloaded successfully")
+            print(f"Insufficient files downloaded: {downloaded_files}/{len(src_files)}")
+            return False
                 
         except Exception as e:
             print(f"Failed to download src folder from GitHub: {e}")
@@ -1053,74 +1143,70 @@ class SimpleDashboardApp:
             
             # Create minimal fallback files if download fails
             self.create_minimal_src_folder()
+            return False
     
     def create_minimal_src_folder(self):
-        """Create minimal src folder with basic files if download fails"""
+        """Create minimal src folder with basic HTML file if download fails"""
         print("Creating minimal src folder as fallback...")
         
         self.src_dir.mkdir(exist_ok=True)
         
-        # Create minimal HTML
+        # Create minimal HTML with embedded CSS (no external dependencies)
         html_content = """<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Canvas Notes Dashboard</title>
-    <link rel="stylesheet" href="styles.css">
+    <style>
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            margin: 0; 
+            padding: 0; 
+            background: linear-gradient(135deg, #0f1419 0%, #1a2332 100%); 
+            color: white; 
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .container {
+            text-align: center;
+            padding: 50px;
+            background: rgba(30, 40, 50, 0.8);
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+        h1 {
+            color: #4a9eff;
+            margin-bottom: 20px;
+            font-size: 2.5rem;
+        }
+        p {
+            font-size: 1.2rem;
+            line-height: 1.6;
+            margin-bottom: 15px;
+        }
+        .status {
+            color: #ffc107;
+            font-weight: bold;
+        }
+    </style>
 </head>
 <body>
-    <div id="loading-screen" class="loading-screen">
-        <div class="loading-content">
-            <h2>Canvas Notes</h2>
-            <p>Minimal fallback mode - please check internet connection</p>
-        </div>
+    <div class="container">
+        <h1>🎓 Canvas Notes Dashboard</h1>
+        <p class="status">Minimal fallback mode</p>
+        <p>Please check your internet connection and try again.</p>
+        <p>The application will attempt to download the latest interface files when connectivity is restored.</p>
     </div>
-    <div id="main-app" class="main-app" style="display: none;">
-        <h1>Canvas Notes</h1>
-        <p>Please configure your Canvas API to get started.</p>
-    </div>
-    <script src="app.js"></script>
 </body>
 </html>"""
         
-        # Create minimal CSS
-        css_content = """body { 
-    font-family: Arial, sans-serif; 
-    margin: 0; 
-    padding: 20px; 
-    background: #0f1419; 
-    color: white; 
-}
-.loading-screen { 
-    text-align: center; 
-    padding: 50px; 
-}
-.main-app { 
-    padding: 20px; 
-}"""
-        
-        # Create minimal JS
-        js_content = """document.addEventListener('DOMContentLoaded', () => {
-    const loadingScreen = document.getElementById('loading-screen');
-    const mainApp = document.getElementById('main-app');
-    
-    setTimeout(() => {
-        loadingScreen.style.display = 'none';
-        mainApp.style.display = 'block';
-    }, 1000);
-});"""
-        
-        # Create minimal updater
-        updater_content = """console.log('Canvas Notes Updater - Minimal Mode');"""
-        
-        # Write files
+        # Write the minimal HTML file
         (self.src_dir / "index.html").write_text(html_content, encoding='utf-8')
-        (self.src_dir / "styles.css").write_text(css_content, encoding='utf-8')
-        (self.src_dir / "app.js").write_text(js_content, encoding='utf-8')
-        (self.src_dir / "updater.js").write_text(updater_content, encoding='utf-8')
         
-        print("Minimal src folder created successfully")
+        print("Minimal src folder created successfully with standalone HTML file")
     
     def cleanup_server(self):
         """Clean up server resources"""
@@ -1260,8 +1346,8 @@ class SimpleDashboardApp:
             
             needs_update = stored_commit != latest_commit_sha
             
-            # Count local files
-            local_files = len(list(self.src_dir.glob('*.html'))) + len(list(self.src_dir.glob('*.css'))) + len(list(self.src_dir.glob('*.js')))
+            # Count local files (only HTML now)
+            local_files = len(list(self.src_dir.glob('*.html')))
             
             return {
                 'needs_update': needs_update,
@@ -1306,13 +1392,13 @@ class SimpleDashboardApp:
             print(f"Failed to store src commit hash: {e}")
     
     def update_src_folder(self):
-        """Update the src folder with latest files from GitHub"""
+        """Update the src folder with latest HTML file from GitHub"""
         try:
             if DEV_MODE:
                 print("DEV MODE: Skipping src folder update - using local files")
                 return False
                 
-            print("Updating src folder...")
+            print("Updating HTML file...")
             
             # Get latest commit hash first
             api_url = "https://api.github.com/repos/Giraffe801/CanvasNotes/commits?path=src&per_page=1"
@@ -1325,17 +1411,17 @@ class SimpleDashboardApp:
             else:
                 latest_commit_sha = 'unknown'
             
-            # Download the updated files
+            # Download the updated HTML file
             self.download_src_folder()
             
             # Store the commit hash
             self.store_src_commit(latest_commit_sha)
             
-            print("src folder updated successfully!")
+            print("HTML file updated successfully!")
             return True
             
         except Exception as e:
-            print(f"Failed to update src folder: {e}")
+            print(f"Failed to update HTML file: {e}")
             return False
     
     def perform_complete_update(self, update_app=True, update_src=True):
@@ -1602,17 +1688,18 @@ class SimpleDashboardApp:
             print("Update can be triggered via web interface")
 
     def start_update_process(self, latest_version):
-        """Start the update process"""
+        """Start the update process - downloads new exe and HTML if applicable"""
         try:
-            # First update the src folder if not in dev mode
+            # First update the HTML file if not in dev mode
             if not DEV_MODE:
-                print("Updating src folder before application update...")
+                print("Updating HTML file before application update...")
                 try:
                     self.update_src_folder()
-                    print("src folder updated successfully")
+                    print("HTML file updated successfully")
                 except Exception as e:
-                    print(f"Failed to update src folder: {e}")
+                    print(f"Failed to update HTML file: {e}")
             
+            # Download new executable
             exe_url = "https://github.com/Giraffe801/CanvasNotes/releases/latest/download/canvas_dashboard.exe"
             
             tmp_dir = tempfile.gettempdir()
